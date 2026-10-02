@@ -1,6 +1,18 @@
 import { create } from 'zustand';
-import type { TickRecord, CandleRecord, CollectorLogRecord } from '../data/db';
-import { type AppSettings, DEFAULT_SETTINGS, setSetting, loadAllSettings } from '../data/repositories';
+import type { TickRecord, CandleRecord, CollectorLogRecord, PaperLedgerRecord } from '../data/db';
+import {
+  type AppSettings,
+  DEFAULT_SETTINGS,
+  setSetting,
+  loadAllSettings,
+  ensurePaperRun,
+  getPaperBalance,
+  getPaperLedger,
+  addPaperFunds as repoAddPaperFunds,
+  reducePaperFunds as repoReducePaperFunds,
+  setPaperBalance as repoSetPaperBalance,
+  resetPaperAccount as repoResetPaperAccount,
+} from '../data/repositories';
 import { workerClient } from '../collector/workerClient';
 
 export type MainTab = 'home' | 'markets' | 'patterns' | 'trading' | 'more';
@@ -43,6 +55,10 @@ interface AppState {
   // Gaps trigger counter
   gapsVersion: number;
 
+  // Paper Account
+  paperBalance: number | null;
+  paperLedger: PaperLedgerRecord[];
+
   // Navigation actions
   setActiveTab: (tab: MainTab) => void;
   openSubScreen: (screen: SubScreen) => void;
@@ -53,6 +69,13 @@ interface AppState {
   toggleIndicator: (indicator: 'ma' | 'ema' | 'rsi' | 'macd') => void;
   setPatternFilter: (filter: 'all' | 'wins' | 'losses' | 'pending') => void;
   setSelectedTradeType: (tradeType: 'spot' | 'futures' | 'options' | 'fixedTime') => void;
+
+  // Paper actions
+  loadPaper: () => Promise<void>;
+  addPaperFunds: (amount: number) => Promise<void>;
+  reducePaperFunds: (amount: number) => Promise<void>;
+  setPaperBalance: (target: number) => Promise<void>;
+  resetPaperAccount: (startAmount: number) => Promise<void>;
 
   // Live data actions
   addLiveTick: (tick: TickRecord) => void;
@@ -99,6 +122,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   settingsLoaded: false,
   gapsVersion: 0,
 
+  paperBalance: null,
+  paperLedger: [],
+
   setActiveTab: (tab: MainTab) => {
     set({ activeTab: tab, activeSubScreen: null });
   },
@@ -140,6 +166,32 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedTradeType: (tradeType) => {
     set({ selectedTradeType: tradeType });
     setSetting('selectedTradeType', tradeType);
+  },
+
+  loadPaper: async () => {
+    const balance = await getPaperBalance();
+    const ledger = await getPaperLedger(10);
+    set({ paperBalance: balance, paperLedger: ledger });
+  },
+
+  addPaperFunds: async (amount: number) => {
+    await repoAddPaperFunds(amount);
+    await get().loadPaper();
+  },
+
+  reducePaperFunds: async (amount: number) => {
+    await repoReducePaperFunds(amount);
+    await get().loadPaper();
+  },
+
+  setPaperBalance: async (target: number) => {
+    await repoSetPaperBalance(target);
+    await get().loadPaper();
+  },
+
+  resetPaperAccount: async (startAmount: number) => {
+    await repoResetPaperAccount(startAmount);
+    await get().loadPaper();
   },
 
   addLiveTick: (tick: TickRecord) => {
@@ -209,6 +261,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     workerClient.init(settings);
+    await ensurePaperRun();
+    await get().loadPaper();
   },
 
   updateSettings: async (partial: Partial<AppSettings>) => {

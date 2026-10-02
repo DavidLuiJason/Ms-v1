@@ -297,8 +297,8 @@ export const AutoClickerScreen: React.FC = () => {
           {/* Mock app backdrop lines */}
           <div className="absolute inset-0 flex flex-col justify-between p-3 pointer-events-none opacity-40">
             <div className="flex justify-between items-center text-[10px] text-slate-600 font-mono">
-              <span>BTC/USDT</span>
-              <span>67,412.50</span>
+              <span>Target app</span>
+              <span>—</span>
             </div>
             <div className="h-20 border-b border-dashed border-slate-800 flex items-center justify-center">
               <span className="text-[10px] text-slate-700">Target App Surface (Drag markers to position)</span>

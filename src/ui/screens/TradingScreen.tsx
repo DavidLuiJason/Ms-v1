@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../state/store';
 import { Wallet, TrendingUp, History } from 'lucide-react';
+import { formatPrice } from '../../lib/formatters';
+import { PaperAccountSheet } from '../components/PaperAccountSheet';
 
 export const TradingScreen: React.FC = () => {
-  const { selectedTradeType, setSelectedTradeType } = useAppStore();
+  const { selectedTradeType, setSelectedTradeType, paperBalance } = useAppStore();
+  const [showAdjustSheet, setShowAdjustSheet] = useState(false);
 
   const tradeTypes: Array<{ id: 'spot' | 'futures' | 'options' | 'fixedTime'; label: string }> = [
     { id: 'spot', label: 'Spot' },
@@ -26,10 +29,20 @@ export const TradingScreen: React.FC = () => {
             <Wallet className="w-3.5 h-3.5 text-cyan-400" />
             Paper Account
           </div>
-          <div className="text-2xl font-bold text-white font-mono tracking-tight">$10,000.00</div>
+          <div className="text-2xl font-bold text-white font-mono tracking-tight">
+            {paperBalance !== null ? `$${formatPrice(paperBalance, 2)}` : '—'}
+          </div>
         </div>
-        <div className="px-3 py-1 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs font-semibold text-cyan-400">
-          Simulation
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="px-3 py-1 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs font-semibold text-cyan-400">
+            Simulation
+          </div>
+          <button
+            onClick={() => setShowAdjustSheet(true)}
+            className="px-3 py-1 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs font-semibold text-cyan-400 hover:bg-cyan-500/20 transition active:scale-95 cursor-pointer"
+          >
+            Adjust
+          </button>
         </div>
       </div>
 
@@ -90,6 +103,8 @@ export const TradingScreen: React.FC = () => {
           <p className="text-xs text-slate-500">Available in the next build</p>
         </div>
       </div>
+
+      {showAdjustSheet && <PaperAccountSheet onClose={() => setShowAdjustSheet(false)} />}
     </div>
   );
 };

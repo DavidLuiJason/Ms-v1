@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { db, type TickRecord, type QuoteBarRecord, type CandleRecord, type CollectorLogRecord, type SettingRecord, type ClickerProfileRecord } from '../data/db';
+import { db, type TickRecord, type QuoteBarRecord, type CandleRecord, type CollectorLogRecord, type SettingRecord, type ClickerProfileRecord, type PaperLedgerRecord } from '../data/db';
 
 export type ExportScope = 'all' | 'candles' | 'liquidity' | 'settings_profiles';
 
@@ -95,6 +95,13 @@ export async function exportDataZip(scope: ExportScope = 'all'): Promise<{ blob:
     const profilesSha = await calculateSha256(profilesNdjson);
     zip.file('clickerProfiles.ndjson', profilesNdjson);
     tables['clickerProfiles'] = { file: 'clickerProfiles.ndjson', count: profiles.length, sha256: profilesSha };
+
+    // paperLedger
+    const ledger = await db.paperLedger.toArray();
+    const ledgerNdjson = ledger.map((row) => JSON.stringify(row)).join('\n') + (ledger.length > 0 ? '\n' : '');
+    const ledgerSha = await calculateSha256(ledgerNdjson);
+    zip.file('paperLedger.ndjson', ledgerNdjson);
+    tables['paperLedger'] = { file: 'paperLedger.ndjson', count: ledger.length, sha256: ledgerSha };
   }
 
   const manifest: Manifest = {
@@ -150,7 +157,7 @@ export async function importDataZip(file: File): Promise<ImportSummary> {
     skippedUnknownTables: [],
   };
 
-  const knownTables = new Set(['ticks', 'quoteBars', 'candles', 'gaps', 'settings', 'clickerProfiles']);
+  const knownTables = new Set(['ticks', 'quoteBars', 'candles', 'gaps', 'settings', 'clickerProfiles', 'paperLedger']);
 
   for (const [tableName, meta] of Object.entries(manifest.tables)) {
     if (!knownTables.has(tableName)) {
@@ -228,18 +235,28 @@ export async function importDataZip(file: File): Promise<ImportSummary> {
         addedCount += Math.max(0, diff);
         skippedCount += (batch.length - Math.max(0, diff));
       } else if (tableName === 'settings') {
-        const batch = parsedRecords as SettingRecord[];
+        const rawBatch = parsedRecords as SettingRecord[];
+        // NEVER changes the current 'paperRunId'
+        const batch = rawBatch.filter((s) => s.key !== 'paperRunId');
         const countBefore = await db.settings.count();
         await db.settings.bulkPut(batch);
         const countAfter = await db.settings.count();
         const diff = countAfter - countBefore;
         addedCount += Math.max(0, diff);
-        skippedCount += (batch.length - Math.max(0, diff));
+        skippedCount += (rawBatch.length - Math.max(0, diff));
       } else if (tableName === 'clickerProfiles') {
         const batch = parsedRecords as ClickerProfileRecord[];
         const countBefore = await db.clickerProfiles.count();
         await db.clickerProfiles.bulkPut(batch);
         const countAfter = await db.clickerProfiles.count();
+        const diff = countAfter - countBefore;
+        addedCount += Math.max(0, diff);
+        skippedCount += (batch.length - Math.max(0, diff));
+      } else if (tableName === 'paperLedger') {
+        const batch = parsedRecords as PaperLedgerRecord[];
+        const countBefore = await db.paperLedger.count();
+        await db.paperLedger.bulkPut(batch);
+        const countAfter = await db.paperLedger.count();
         const diff = countAfter - countBefore;
         addedCount += Math.max(0, diff);
         skippedCount += (batch.length - Math.max(0, diff));

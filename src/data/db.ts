@@ -84,6 +84,15 @@ export interface ClickerProfileRecord {
   markers: ClickerMarker[];
 }
 
+export interface PaperLedgerRecord {
+  id: string;
+  t: number;
+  runId: string;
+  type: 'start' | 'adjust';
+  amount: number;
+  note?: string;
+}
+
 export class MarketScopeDatabase extends Dexie {
   ticks!: Table<TickRecord, [string, string, number]>;
   quoteBars!: Table<QuoteBarRecord, [string, string, number]>;
@@ -92,6 +101,7 @@ export class MarketScopeDatabase extends Dexie {
   settings!: Table<SettingRecord, string>;
   errorLog!: Table<ErrorLogRecord, number>;
   clickerProfiles!: Table<ClickerProfileRecord, string>;
+  paperLedger!: Table<PaperLedgerRecord, string>;
 
   constructor() {
     super('MarketScopeDB');
@@ -103,6 +113,16 @@ export class MarketScopeDatabase extends Dexie {
       settings: 'key',
       errorLog: '++id, t, screen',
       clickerProfiles: 'id, name',
+    });
+    this.version(2).stores({
+      ticks: '[src+sym+u], sym, t, [sym+t]',
+      quoteBars: '[src+sym+t], sym, t, [sym+t]',
+      candles: '[src+sym+tf+t], sym, tf, t, [sym+tf+t]',
+      collectorLog: '++id, t, type, status, sym, [sym+tf]',
+      settings: 'key',
+      errorLog: '++id, t, screen',
+      clickerProfiles: 'id, name',
+      paperLedger: 'id, t, runId, type',
     });
   }
 }
