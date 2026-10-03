@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import type { TickRecord, CandleRecord, CollectorLogRecord, PaperLedgerRecord } from '../data/db';
+import type { TickRecord, CandleRecord, CollectorLogRecord, PaperLedgerRecord, TradeTemplateRecord } from '../data/db';
 import {
   type AppSettings,
   DEFAULT_SETTINGS,
   setSetting,
   loadAllSettings,
+  getSetting,
   ensurePaperRun,
   getPaperBalance,
   getPaperLedger,
@@ -12,6 +13,10 @@ import {
   reducePaperFunds as repoReducePaperFunds,
   setPaperBalance as repoSetPaperBalance,
   resetPaperAccount as repoResetPaperAccount,
+  listTradeTemplates,
+  saveTradeTemplate as repoSaveTradeTemplate,
+  deleteTradeTemplate as repoDeleteTradeTemplate,
+  seedTradeTemplatesIfNeeded,
 } from '../data/repositories';
 import { workerClient } from '../collector/workerClient';
 
@@ -32,7 +37,8 @@ interface AppState {
     macd: boolean;
   };
   patternFilter: 'all' | 'wins' | 'losses' | 'pending';
-  selectedTradeType: 'spot' | 'futures' | 'options' | 'fixedTime';
+  tradeTemplates: TradeTemplateRecord[];
+  selectedTemplateId: string | null;
 
   // Live real-time ring buffers (last 300 points per symbol)
   ticksRingBuffer: Record<string, TickRecord[]>;
@@ -68,7 +74,10 @@ interface AppState {
   setIndicatorsEnabled: (enabled: boolean) => void;
   toggleIndicator: (indicator: 'ma' | 'ema' | 'rsi' | 'macd') => void;
   setPatternFilter: (filter: 'all' | 'wins' | 'losses' | 'pending') => void;
-  setSelectedTradeType: (tradeType: 'spot' | 'futures' | 'options' | 'fixedTime') => void;
+  loadTemplates: () => Promise<void>;
+  saveTemplate: (t: TradeTemplateRecord) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  setSelectedTemplate: (id: string | null) => void;
 
   // Paper actions
   loadPaper: () => Promise<void>;
@@ -104,7 +113,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     macd: false,
   },
   patternFilter: 'all',
-  selectedTradeType: 'spot',
+  tradeTemplates: [],
+  selectedTemplateId: null,
 
   ticksRingBuffer: {},
   latestTicks: {},
@@ -163,9 +173,44 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ patternFilter: filter });
   },
 
-  setSelectedTradeType: (tradeType) => {
-    set({ selectedTradeType: tradeType });
-    setSetting('selectedTradeType', tradeType);
+  loadTemplates: async () => {
+    const list = await listTradeTemplates();
+    set({ tradeTemplates: list });
+    const currentSelected = get().selectedTemplateId;
+    if (!currentSelected || !list.some((t) => t.id === currentSelected)) {
+      const nextId = list.length > 0 ? list[0].id : null;
+      set({ selectedTemplateId: nextId });
+      if (nextId) {
+        await setSetting('selectedTemplateId', nextId);
+      }
+    }
+  },
+
+  setSelectedTemplate: (id: string | null) => {
+    set({ selectedTemplateId: id });
+    if (id) {
+      setSetting('selectedTemplateId', id);
+    }
+  },
+
+  saveTemplate: async (t: TradeTemplateRecord) => {
+    await repoSaveTradeTemplate(t);
+    const list = await listTradeTemplates();
+    set({ tradeTemplates: list, selectedTemplateId: t.id });
+    await setSetting('selectedTemplateId', t.id);
+  },
+
+  deleteTemplate: async (id: string) => {
+    await repoDeleteTradeTemplate(id);
+    const list = await listTradeTemplates();
+    let nextSelected = get().selectedTemplateId;
+    if (nextSelected === id) {
+      nextSelected = list.length > 0 ? list[0].id : null;
+      if (nextSelected) {
+        await setSetting('selectedTemplateId', nextSelected);
+      }
+    }
+    set({ tradeTemplates: list, selectedTemplateId: nextSelected });
   },
 
   loadPaper: async () => {
@@ -252,7 +297,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initSettings: async () => {
     const settings = await loadAllSettings();
-    const storedTradeType = await setSetting; // check stored
     set({
       settings,
       isPaused: settings.collectorPaused,
@@ -263,6 +307,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     workerClient.init(settings);
     await ensurePaperRun();
     await get().loadPaper();
+
+    await seedTradeTemplatesIfNeeded();
+    await get().loadTemplates();
+    const storedTemplateId = await getSetting<string | null>('selectedTemplateId', null);
+    const currentTemplates = get().tradeTemplates;
+    if (storedTemplateId && currentTemplates.some((t) => t.id === storedTemplateId)) {
+      set({ selectedTemplateId: storedTemplateId });
+    } else {
+      const fallbackId = currentTemplates.length > 0 ? currentTemplates[0].id : null;
+      set({ selectedTemplateId: fallbackId });
+      if (fallbackId) {
+        await setSetting('selectedTemplateId', fallbackId);
+      }
+    }
   },
 
   updateSettings: async (partial: Partial<AppSettings>) => {

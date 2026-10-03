@@ -1,6 +1,7 @@
-import { db, type SettingRecord, type CollectorLogRecord, type ErrorLogRecord, type ClickerProfileRecord, type PaperLedgerRecord } from './db';
+import { db, type SettingRecord, type CollectorLogRecord, type ErrorLogRecord, type ClickerProfileRecord, type PaperLedgerRecord, type TradeTemplateRecord } from './db';
 
 export const PAPER_DEFAULT_START = 10000;
+export const MAX_TRACKED_SYMBOLS = 20;
 const MAX_PAPER_AMOUNT = 1000000000;
 
 export interface AppSettings {
@@ -30,9 +31,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   rawTickRetentionDays: 3,
   tradeTypes: {
     spot: true,
-    futures: false,
-    options: false,
-    fixedTime: false,
+    futures: true,
+    options: true,
+    fixedTime: true,
   },
   safetyLimits: {
     maxStake: 500,
@@ -250,5 +251,126 @@ export async function resetPaperAccount(startAmount: number): Promise<void> {
     type: 'start',
     amount: cleanStart,
   });
+}
+
+export function isTemplateIncomplete(t: TradeTemplateRecord): boolean {
+  if (!t) return true;
+  switch (t.model) {
+    case 'direction_round':
+      return t.durationSec == null || t.payoutPct == null;
+    case 'direction_round_condition':
+      return t.durationSec == null || t.payoutPct == null || t.conditionPct == null;
+    case 'leveraged_position':
+      return t.leverage == null || t.feePct == null;
+    case 'spot':
+      return t.feePct == null;
+    default:
+      return false;
+  }
+}
+
+export async function listTradeTemplates(): Promise<TradeTemplateRecord[]> {
+  const templates = await db.tradeTemplates.toArray();
+  return templates.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+export async function saveTradeTemplate(t: TradeTemplateRecord): Promise<void> {
+  await db.tradeTemplates.put(t);
+}
+
+export async function deleteTradeTemplate(id: string): Promise<void> {
+  await db.tradeTemplates.delete(id);
+}
+
+export async function seedTradeTemplatesIfNeeded(): Promise<void> {
+  const isSeeded = await getSetting<boolean>('tradeTemplatesSeeded', false);
+  if (isSeeded) return;
+
+  const now = Date.now();
+  const presets: TradeTemplateRecord[] = [
+    {
+      id: crypto.randomUUID(),
+      name: 'Trend Trade 5s',
+      platform: 'Cwallet',
+      model: 'direction_round',
+      preset: true,
+      createdAt: now,
+      durationSec: 5,
+      payoutPct: null,
+      minStake: 1,
+      maxStake: null,
+      tieRule: 'refund',
+      conditionPct: null,
+      leverage: null,
+      feePct: null,
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Trend Trade 15s',
+      platform: 'Cwallet',
+      model: 'direction_round',
+      preset: true,
+      createdAt: now + 1,
+      durationSec: 15,
+      payoutPct: null,
+      minStake: 1,
+      maxStake: null,
+      tieRule: 'refund',
+      conditionPct: null,
+      leverage: null,
+      feePct: null,
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Spread Rush 5s',
+      platform: 'Cwallet',
+      model: 'direction_round_condition',
+      preset: true,
+      createdAt: now + 2,
+      durationSec: 5,
+      payoutPct: null,
+      minStake: null,
+      maxStake: null,
+      tieRule: 'refund',
+      conditionPct: null,
+      leverage: null,
+      feePct: null,
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Perpetual Futures',
+      platform: 'Cwallet',
+      model: 'leveraged_position',
+      preset: true,
+      createdAt: now + 3,
+      durationSec: null,
+      payoutPct: null,
+      minStake: null,
+      maxStake: null,
+      tieRule: null as any,
+      conditionPct: null,
+      leverage: null,
+      feePct: null,
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Spot',
+      platform: 'Cwallet',
+      model: 'spot',
+      preset: true,
+      createdAt: now + 4,
+      durationSec: null,
+      payoutPct: null,
+      minStake: null,
+      maxStake: null,
+      tieRule: null as any,
+      conditionPct: null,
+      leverage: null,
+      feePct: null,
+    },
+  ];
+
+  await db.tradeTemplates.bulkPut(presets);
+  await setSetting('tradeTemplatesSeeded', true);
 }
 

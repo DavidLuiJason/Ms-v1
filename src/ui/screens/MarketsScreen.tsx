@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../state/store';
 import { formatPrice, formatPercent } from '../../lib/formatters';
+import { splitSymbol } from '../../lib/symbols';
+import { MarketScannerModal } from '../components/MarketScannerModal';
+import { Search } from 'lucide-react';
 
 interface Props {
   onSelectSymbol: (symbol: string) => void;
@@ -8,12 +11,22 @@ interface Props {
 
 export const MarketsScreen: React.FC<Props> = ({ onSelectSymbol }) => {
   const { settings, latestTicks, tickers24h } = useAppStore();
+  const [showScanner, setShowScanner] = useState(false);
 
   return (
     <div className="p-4 space-y-4 pb-20">
-      <div>
-        <h2 className="text-xl font-bold text-white tracking-tight mb-1">Markets</h2>
-        <p className="text-xs text-slate-400">Live order book liquidity and 24h performance</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight mb-1">Markets</h2>
+          <p className="text-xs text-slate-400">Live order book liquidity and 24h performance</p>
+        </div>
+        <button
+          onClick={() => setShowScanner(true)}
+          className="px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+        >
+          <Search className="w-3.5 h-3.5" />
+          <span>Scanner</span>
+        </button>
       </div>
 
       <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl">
@@ -39,7 +52,7 @@ export const MarketsScreen: React.FC<Props> = ({ onSelectSymbol }) => {
               const spread = tick ? tick.ask - tick.bid : undefined;
               const change24h = tickers24h[sym];
 
-              const formattedSym = sym.replace('USDT', '');
+              const formattedSym = splitSymbol(sym).base;
 
               return (
                 <div
@@ -55,7 +68,7 @@ export const MarketsScreen: React.FC<Props> = ({ onSelectSymbol }) => {
                     <div>
                       <div className="font-bold text-sm text-white">{formattedSym}</div>
                       <div className="text-[10px] text-slate-400 font-mono">
-                        {spread !== undefined ? `Spr ${spread.toFixed(2)}` : 'USDT'}
+                        {spread !== undefined ? `Spr ${spread.toFixed(2)}` : splitSymbol(sym).quote}
                       </div>
                     </div>
                   </div>
@@ -92,6 +105,8 @@ export const MarketsScreen: React.FC<Props> = ({ onSelectSymbol }) => {
           )}
         </div>
       </div>
+
+      <MarketScannerModal isOpen={showScanner} onClose={() => setShowScanner(false)} />
     </div>
   );
 };

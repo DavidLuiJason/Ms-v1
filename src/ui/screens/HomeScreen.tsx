@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../state/store';
 import { getDatabaseStats } from '../../data/repositories';
 import { formatPrice, formatUptime, formatRelativeTime, formatBytes } from '../../lib/formatters';
+import { formatPair } from '../../lib/symbols';
 import { Activity, Pause, Play, TrendingUp, Layers, CheckCircle2, Database, Clock } from 'lucide-react';
 
 export const HomeScreen: React.FC = () => {
@@ -125,7 +126,7 @@ export const HomeScreen: React.FC = () => {
             const sellLiquidity = tick ? tick.bid : undefined; // bid = Sell Liquidity
             const spread = tick ? tick.ask - tick.bid : undefined;
 
-            const formattedSym = sym.replace('USDT', '/USDT');
+            const formattedSym = formatPair(sym);
 
             return (
               <div

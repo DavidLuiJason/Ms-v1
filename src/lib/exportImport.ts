@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { db, type TickRecord, type QuoteBarRecord, type CandleRecord, type CollectorLogRecord, type SettingRecord, type ClickerProfileRecord, type PaperLedgerRecord } from '../data/db';
+import { db, type TickRecord, type QuoteBarRecord, type CandleRecord, type CollectorLogRecord, type SettingRecord, type ClickerProfileRecord, type PaperLedgerRecord, type TradeTemplateRecord } from '../data/db';
 
 export type ExportScope = 'all' | 'candles' | 'liquidity' | 'settings_profiles';
 
@@ -102,6 +102,13 @@ export async function exportDataZip(scope: ExportScope = 'all'): Promise<{ blob:
     const ledgerSha = await calculateSha256(ledgerNdjson);
     zip.file('paperLedger.ndjson', ledgerNdjson);
     tables['paperLedger'] = { file: 'paperLedger.ndjson', count: ledger.length, sha256: ledgerSha };
+
+    // tradeTemplates
+    const templates = await db.tradeTemplates.toArray();
+    const templatesNdjson = templates.map((row) => JSON.stringify(row)).join('\n') + (templates.length > 0 ? '\n' : '');
+    const templatesSha = await calculateSha256(templatesNdjson);
+    zip.file('tradeTemplates.ndjson', templatesNdjson);
+    tables['tradeTemplates'] = { file: 'tradeTemplates.ndjson', count: templates.length, sha256: templatesSha };
   }
 
   const manifest: Manifest = {

@@ -93,6 +93,25 @@ export interface PaperLedgerRecord {
   note?: string;
 }
 
+export type TradeModel = 'direction_round' | 'direction_round_condition' | 'leveraged_position' | 'spot';
+
+export interface TradeTemplateRecord {
+  id: string;
+  name: string;
+  platform: string;
+  model: TradeModel;
+  preset: boolean;
+  createdAt: number;
+  durationSec?: number | null;
+  payoutPct?: number | null;
+  minStake?: number | null;
+  maxStake?: number | null;
+  tieRule?: 'refund' | 'win' | 'lose';
+  conditionPct?: number | null;
+  leverage?: number | null;
+  feePct?: number | null;
+}
+
 export class MarketScopeDatabase extends Dexie {
   ticks!: Table<TickRecord, [string, string, number]>;
   quoteBars!: Table<QuoteBarRecord, [string, string, number]>;
@@ -102,6 +121,7 @@ export class MarketScopeDatabase extends Dexie {
   errorLog!: Table<ErrorLogRecord, number>;
   clickerProfiles!: Table<ClickerProfileRecord, string>;
   paperLedger!: Table<PaperLedgerRecord, string>;
+  tradeTemplates!: Table<TradeTemplateRecord, string>;
 
   constructor() {
     super('MarketScopeDB');
@@ -123,6 +143,17 @@ export class MarketScopeDatabase extends Dexie {
       errorLog: '++id, t, screen',
       clickerProfiles: 'id, name',
       paperLedger: 'id, t, runId, type',
+    });
+    this.version(3).stores({
+      ticks: '[src+sym+u], sym, t, [sym+t]',
+      quoteBars: '[src+sym+t], sym, t, [sym+t]',
+      candles: '[src+sym+tf+t], sym, tf, t, [sym+tf+t]',
+      collectorLog: '++id, t, type, status, sym, [sym+tf]',
+      settings: 'key',
+      errorLog: '++id, t, screen',
+      clickerProfiles: 'id, name',
+      paperLedger: 'id, t, runId, type',
+      tradeTemplates: 'id, platform, model, name, createdAt',
     });
   }
 }

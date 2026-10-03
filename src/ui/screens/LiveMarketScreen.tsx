@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../state/store';
 import { formatPrice } from '../../lib/formatters';
+import { formatPair } from '../../lib/symbols';
 import { TradingViewChart } from '../components/TradingViewChart';
 import { ChevronDown, ArrowLeft } from 'lucide-react';
 
@@ -51,7 +52,7 @@ export const LiveMarketScreen: React.FC<Props> = ({ onBack }) => {
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 text-white font-bold text-base transition"
             >
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <span>{selectedSymbol.replace('USDT', '/USDT')}</span>
+              <span>{formatPair(selectedSymbol)}</span>
               <ChevronDown className="w-4 h-4 text-slate-400" />
             </button>
 
@@ -68,7 +69,7 @@ export const LiveMarketScreen: React.FC<Props> = ({ onBack }) => {
                       s === selectedSymbol ? 'text-cyan-400 bg-slate-800/50' : 'text-slate-200'
                     }`}
                   >
-                    {s.replace('USDT', '/USDT')}
+                    {formatPair(s)}
                   </button>
                 ))}
               </div>

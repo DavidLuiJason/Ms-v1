@@ -9,6 +9,19 @@ export interface KlineData {
   isClosed: boolean;
 }
 
+export interface ScannerTicker {
+  symbol: string;
+  lastPrice: number;
+  priceChangePercent: number;
+  highPrice: number;
+  lowPrice: number;
+  volume: number;
+  quoteVolume: number;
+  bidPrice: number;
+  askPrice: number;
+  count: number;
+}
+
 export interface ExchangeAdapter {
   connect(
     symbols: string[],
@@ -20,6 +33,7 @@ export interface ExchangeAdapter {
   fetchKlines(symbol: string, interval: string, startTime?: number, limit?: number): Promise<KlineData[]>;
   fetchSymbols(): Promise<string[]>;
   fetch24hr(symbol: string): Promise<{ symbol: string; priceChangePercent: number }>;
+  fetchAllTickers24h(): Promise<ScannerTicker[]>;
   setHost(dataSource: 'global' | 'us'): void;
 }
 
@@ -217,5 +231,25 @@ export class BinanceAdapter implements ExchangeAdapter {
       symbol: data.symbol,
       priceChangePercent: Number(data.priceChangePercent),
     };
+  }
+
+  async fetchAllTickers24h(): Promise<ScannerTicker[]> {
+    const resp = await fetch(`${this.restBase}/api/v3/ticker/24hr`);
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch 24hr tickers: ${resp.status}`);
+    }
+    const data = await resp.json();
+    return data.map((t: any) => ({
+      symbol: t.symbol,
+      lastPrice: Number(t.lastPrice),
+      priceChangePercent: Number(t.priceChangePercent),
+      highPrice: Number(t.highPrice),
+      lowPrice: Number(t.lowPrice),
+      volume: Number(t.volume),
+      quoteVolume: Number(t.quoteVolume),
+      bidPrice: Number(t.bidPrice),
+      askPrice: Number(t.askPrice),
+      count: Number(t.count),
+    }));
   }
 }

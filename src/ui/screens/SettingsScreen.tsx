@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../state/store';
 import { BinanceAdapter } from '../../collector/exchangeAdapter';
+import { MAX_TRACKED_SYMBOLS } from '../../data/repositories';
+import { MarketScannerModal } from '../components/MarketScannerModal';
 import {
   ChevronRight,
   Plus,
@@ -9,6 +11,7 @@ import {
   BatteryCharging,
   AlertCircle,
   Check,
+  Search,
 } from 'lucide-react';
 
 const validatorAdapter = new BinanceAdapter();
@@ -17,6 +20,7 @@ export const SettingsScreen: React.FC = () => {
   const { settings, updateSettings } = useAppStore();
 
   const [showSymbolsSheet, setShowSymbolsSheet] = useState(false);
+  const [showScannerModal, setShowScannerModal] = useState(false);
   const [newSymbolInput, setNewSymbolInput] = useState('');
   const [symbolError, setSymbolError] = useState<string | null>(null);
   const [isValidatingSymbol, setIsValidatingSymbol] = useState(false);
@@ -26,6 +30,11 @@ export const SettingsScreen: React.FC = () => {
   const handleAddSymbol = async () => {
     const sym = newSymbolInput.trim().toUpperCase();
     if (!sym) return;
+
+    if (settings.trackedSymbols.length >= MAX_TRACKED_SYMBOLS) {
+      setSymbolError('Limit reached (20). Remove a pair to add another.');
+      return;
+    }
 
     if (settings.trackedSymbols.includes(sym)) {
       setSymbolError(`${sym} is already being tracked`);
@@ -298,6 +307,15 @@ export const SettingsScreen: React.FC = () => {
               </button>
             </div>
 
+            {/* Scan Market Button */}
+            <button
+              onClick={() => setShowScannerModal(true)}
+              className="w-full mb-3 py-2 px-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-98"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Scan Binance Active Markets</span>
+            </button>
+
             {/* Add symbol input */}
             <div className="flex gap-2 mb-3">
               <input
@@ -389,6 +407,11 @@ export const SettingsScreen: React.FC = () => {
           </div>
         </div>
       )}
+
+      <MarketScannerModal
+        isOpen={showScannerModal}
+        onClose={() => setShowScannerModal(false)}
+      />
     </div>
   );
 };

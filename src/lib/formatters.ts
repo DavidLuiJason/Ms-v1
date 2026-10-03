@@ -53,3 +53,23 @@ export function formatBytes(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
+
+export function formatCompact(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return '0';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+
+  if (abs >= 1_000_000_000) {
+    const val = abs / 1_000_000_000;
+    return `${sign}${val >= 100 ? Math.round(val) : parseFloat(val.toFixed(1))}B`;
+  }
+  if (abs >= 1_000_000) {
+    const val = abs / 1_000_000;
+    return `${sign}${val >= 100 ? Math.round(val) : parseFloat(val.toFixed(1))}M`;
+  }
+  if (abs >= 1_000) {
+    const val = abs / 1_000;
+    return `${sign}${val >= 100 ? Math.round(val) : parseFloat(val.toFixed(1))}K`;
+  }
+  return `${sign}${parseFloat(abs.toFixed(1))}`;
+}
